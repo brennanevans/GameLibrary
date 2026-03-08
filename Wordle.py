@@ -45,7 +45,12 @@ class Box():
         boxWidth = self.rect.width
         boxHeight = self.rect.height
 
-        font = pygame.font.SysFont('arial',boxWidth,True)
+        if self.letter == "ENTER":
+            textSize = 15
+        else:
+            textSize = boxWidth
+
+        font = pygame.font.SysFont('arial',textSize,True)
         textSurface = font.render(self.letter,0,letterColour)
         textWidth = textSurface.get_rect().width
         textHeight = textSurface.get_rect().height
@@ -92,12 +97,11 @@ class BoxGrid():
             for box in row:
                 box.updateLetter() 
 
-    def _setUp(self,screenSurface:pygame.Surface,keyboardStartY:int):
+    def _setUp(self,keyboardStartY:int):
         """
         Creates the box grid on screen.
 
         Args:
-            screenSurface: The surface on which the keyboard should be added.
             keyboardStartY: The The y coordinate of the top of the keyboard.
         """
         PADDING = 5
@@ -106,7 +110,7 @@ class BoxGrid():
         # Calculates horizontal space given 25 padding from each side and
         # PADDING between each box. This ensures boxes are centered 
         # horizontally.
-        xSpaceLeft = screenSurface.get_width() - (SIDE_PADDING*2) - (PADDING*(self.cols-1))
+        xSpaceLeft = gameScreen.width - (SIDE_PADDING*2) - (PADDING*(self.cols-1))
         potentialWidth = xSpaceLeft/self.cols
 
         # Calculates vertical space given 25 padding from the top of the
@@ -127,7 +131,7 @@ class BoxGrid():
 
             for box in row:
                 box.rect = pygame.Rect(x,y,BOX_SIZE,BOX_SIZE)
-                box.display(screenSurface)
+                box.display(gameScreen.surface)
 
                 x += BOX_SIZE + PADDING
             y += BOX_SIZE + PADDING 
@@ -145,10 +149,11 @@ class KeyboardGrid():
         self._surface = pygame.Surface((0,0))
 
         letterOrder = ["Q","W","E","R","T","Y","U","I","O","P","A","S","D",
-                       "F","G","H","J","K","L","Z","X","C","V","B","N","M"]
+                       "F","G","H","J","K","L","ENTER","Z","X","C","V","B","N","M","<--"]
+        
         self.gridArray = []
         self.letterDictionary = {}
-        rowLengths = [10,9,7]
+        rowLengths = [10,9,9]
         
         letterIndex = 0
         rowIndex = 0
@@ -170,13 +175,9 @@ class KeyboardGrid():
             for box in row:
                 box.updateLetter()
 
-    def _setUp(self,screenSurface:pygame.Surface):
+    def _setUp(self):
         """
         Creates the keyboard on screen.
-
-        Args:
-            screenSurface: The surface on which the keyboard should be added.
-
         Returns:
             int: The y coordinate of the top of the keyboard.
         """
@@ -189,14 +190,14 @@ class KeyboardGrid():
         # Calculates horizontal space given 25 padding from each side and
         # PADDING between each box. This ensures boxes are centered 
         # horizontally.
-        initalXSpaceLeft = screenSurface.get_width() - (SIDE_PADDING*2) - (PADDING*(numOfCols-1))
+        initalXSpaceLeft = gameScreen.width - (SIDE_PADDING*2) - (PADDING*(numOfCols-1))
         potentialWidth = initalXSpaceLeft/numOfCols
 
         BOX_SIZE = min(math.floor(potentialWidth),50)
         
         # Calculates top y value given 25 padding from bottom, size 
         # of the boxes and padding between each box.
-        initalY = screenSurface.get_height() - SIDE_PADDING - (numOfRows * BOX_SIZE) - ((numOfRows-1) * PADDING)
+        initalY = gameScreen.height - SIDE_PADDING - (numOfRows * BOX_SIZE) - ((numOfRows-1) * PADDING)
         y= initalY
         
         for row in self.gridArray:
@@ -204,17 +205,34 @@ class KeyboardGrid():
             # x position has to be calculated here as number of columns is 
             # different in each row.
             x = (initalXSpaceLeft - BOX_SIZE*numOfCols)/2 + SIDE_PADDING
-            if numOfCols == 7:
-                x += PADDING # Needs to be aligned with row above
 
             for box in row:
                 box.rect = pygame.Rect(x,y,BOX_SIZE,BOX_SIZE)
-                box.display(screenSurface)
+                box.display(gameScreen.surface)
 
                 x += BOX_SIZE + PADDING
             y += BOX_SIZE + PADDING
 
         return initalY
+    
+    def clicked(self,mousePosX:int,mousePosY:int):
+        """
+        Calls the required method for the keyboard button clicked.
+
+        Args:
+            mousePosX: Mouse's x coordinate.
+            mousePosY: Mouse's y coordinate.
+        """
+        for row in self.gridArray:
+            for box in row:
+                if box.rect.collidepoint(mousePosX,mousePosY):
+                    if box.letter == "ENTER":
+                        KeyFunctions.enter()
+                    elif box.letter == "<--":
+                        KeyFunctions.backspace()
+                    else:
+                        KeyFunctions.letterPressed(box.letter)
+
 
 class Screen():
     """
@@ -239,38 +257,26 @@ class Screen():
         self.surface = pygame.display.set_mode((self.width,self.height))
         self.surface.fill("black")
 
-    def setUp(self,grid:BoxGrid,keyboard:KeyboardGrid):
+    def setUp(self):
         """
         Displays the box grid and keyboard.
-
-        Args:
-            grid: The grid of box objects making up the guessing grid to be
-              displayed.
-            keyboard: The grid of box objects making up the keyboard to be 
-              displayed.
         """
-        keyboardStartY = keyboard._setUp(self.surface)
-        grid._setUp(self.surface,keyboardStartY)
+        keyboardStartY = gameKeyboard._setUp()
+        gameGrid._setUp(keyboardStartY)
 
-    def updateScreen(self,grid:BoxGrid,keyboard:KeyboardGrid):
+    def updateScreen(self):
         """
         Updates the box grid and keyboard grid boxes.
-
-        Args:
-            grid: The grid of box objects making up the guessing grid to be
-              updated.
-            keyboard: The grid of box objects making up the keyboard to be 
-              updated.
         """
-        for row in grid.gridArray:
+        for row in gameGrid.gridArray:
             for box in row:
                 self.surface.blit(box._surface,box.rect)
-        grid.updateLetters()
+        gameGrid.updateLetters()
         
-        for row in keyboard.gridArray:
+        for row in gameKeyboard.gridArray:
             for box in row:
                 self.surface.blit(box._surface,box.rect)
-        keyboard.updateLetters()
+        gameKeyboard.updateLetters()
 
 class Notification():
     """
@@ -350,6 +356,77 @@ class Notification():
             self.screenSurface.fill("Black",self.rect)
             Notification.notificationList.remove(self)
 
+class KeyFunctions():
+    """
+    A container for the functions of keyboard buttons.
+    """
+    def backspace():
+        """
+        Deletes letter from most right, non-empty box in gameGrid.
+        """
+        for box in reversed(gameGrid.gridArray[currentRowIndex]):
+            if box.letter == "":
+                continue
+            else:
+                box.letter = ""
+                break
+    def enter():
+        """
+        Handles the user pressing enter at any time.
+
+        If enter pressed when not all boxes are full, creates notification.
+        If enter pressed when boxes spell a non-real word, creates 
+        notification.
+        If enter pressed when boxes spell a real word, calls required methods.
+        """
+        # Needed as if change global variable anywhere in function, python assumes is local variable
+        global currentRowIndex
+
+        currentRow = gameGrid.gridArray[currentRowIndex]
+        guess = ""
+        for box in currentRow:
+            guess += box.letter.lower()
+
+        # Not all boxes filled
+        if len(guess) < len(WORD_TO_GUESS):
+            tooShortNotification = Notification(1,"Not all boxes filled.","Black","White")
+            tooShortNotification.displayNotification(gameScreen)
+        
+        # Win
+        elif guess == WORD_TO_GUESS:
+            calculateColours(guess,WORD_TO_GUESS)
+            winNotification = Notification(3,f"Congrats!!! You guessed the word in {currentRowIndex+1} tries.","Black","White")
+            winNotification.displayNotification(gameScreen)
+        
+        # Loss or incorrect guess
+        elif isRealWord(guess):
+            calculateColours(guess,WORD_TO_GUESS)
+
+            currentRowIndex += 1
+            #Loss
+            if currentRowIndex >= gameGrid.rows:
+                lossNotification = Notification(3,f"Unlucky, the word was {WORD_TO_GUESS.upper()}.","Black","White")
+                lossNotification.displayNotification(gameScreen)
+
+                currentRowIndex = 0
+
+        # Not a real word
+        else:
+            notRealNotification = Notification(1,"Word not in word list.","Black","White")
+            notRealNotification.displayNotification(gameScreen)
+            
+    def letterPressed(letter:str):
+        """
+        Adds letter to right most box unless all boxes full.
+
+        Args:
+            letter: The letter that was pressed.
+        """
+        for box in gameGrid.gridArray[currentRowIndex]:
+            if box.letter == "":
+                box.letter = letter.upper()
+                break
+
 def isRealWord(word:str):
     """
     Returns whether the passed word is in the english dictionary.
@@ -371,7 +448,7 @@ def isRealWord(word:str):
     else:
         return False
 
-def calculateColours(currentRow:list,keyboard:KeyboardGrid,guess:str,answer:str):
+def calculateColours(guess:str,answer:str):
     """
     Updates the colours of the keyboard and the current row's boxes.
 
@@ -380,11 +457,11 @@ def calculateColours(currentRow:list,keyboard:KeyboardGrid,guess:str,answer:str)
     in the right spot.
 
     Args:
-        currentRow: The row of boxes which contain the most recent guess.
-        keyboard: The grid of boxes representing the keyboard.
         guess: The word guessed.
         answer: The correct word.
     """
+    currentRow = gameGrid.gridArray[currentRowIndex]
+
     # Used to determine if letter has already been seen for #C9B458 
     # determinations.
     lettersLeft = [*answer]
@@ -394,7 +471,7 @@ def calculateColours(currentRow:list,keyboard:KeyboardGrid,guess:str,answer:str)
         letter = guess[index]
         if letter == answer[index]:
             currentRow[index].colour = "#6AAA64"
-            keyboard.letterDictionary.get(letter.upper()).colour = "#6AAA64"
+            gameKeyboard.letterDictionary.get(letter.upper()).colour = "#6AAA64"
             lettersLeft.remove(letter)
 
     #Second loop checks if remaining letters are anywhere in the word.
@@ -402,14 +479,14 @@ def calculateColours(currentRow:list,keyboard:KeyboardGrid,guess:str,answer:str)
         letter = guess[index]
         if letter in lettersLeft and currentRow[index].colour != "#6AAA64":
             currentRow[index].colour = "#C9B458"
-            if keyboard.letterDictionary.get(letter.upper()).colour != "#6AAA64":
-                keyboard.letterDictionary.get(letter.upper()).colour = "#C9B458"
+            if gameKeyboard.letterDictionary.get(letter.upper()).colour != "#6AAA64":
+                gameKeyboard.letterDictionary.get(letter.upper()).colour = "#C9B458"
 
             lettersLeft.remove(letter)
         elif currentRow[index].colour != "#6AAA64":
             currentRow[index].colour = "#787C7E"
-            if keyboard.letterDictionary.get(letter.upper()).colour != "#6AAA64":
-                keyboard.letterDictionary.get(letter.upper()).colour = "#787C7E"
+            if gameKeyboard.letterDictionary.get(letter.upper()).colour != "#6AAA64":
+                gameKeyboard.letterDictionary.get(letter.upper()).colour = "#787C7E"
             
 def generateWord(wordLength:int,difficulty:int):
     """
@@ -440,7 +517,7 @@ def generateWord(wordLength:int,difficulty:int):
                         ,8:"abandons",9:"labelling",10:"eastwardly"}
             return wordDict.get(wordLength)
 
-def main(rowAmount:int,columnAmount:int,wordDifficulty:int,
+def main(rowAmount=6,columnAmount=5,wordDifficulty=3,
          screenWidth=pygame.display.get_desktop_sizes()[0][0]-50,
          screenHeight=pygame.display.get_desktop_sizes()[0][1]-100):
     """
@@ -467,6 +544,9 @@ def main(rowAmount:int,columnAmount:int,wordDifficulty:int,
         ValueError: If rowAmount or columnAmount or wordDifficulty not in their
           respective exepected ranges.
     """
+    global WORD_TO_GUESS,currentRowIndex,gameScreen,gameGrid,gameKeyboard
+
+
     if rowAmount > 12 or columnAmount > 10:
         raise ValueError("Max amount of rows or columns exceeded.")
     elif rowAmount < 4 or columnAmount < 3:
@@ -479,7 +559,7 @@ def main(rowAmount:int,columnAmount:int,wordDifficulty:int,
     gameScreen = Screen(screenWidth,screenHeight)
     gameGrid = BoxGrid(rowAmount,columnAmount)
     gameKeyboard = KeyboardGrid()
-    gameScreen.setUp(gameGrid,gameKeyboard)
+    gameScreen.setUp()
 
     WORD_TO_GUESS = generateWord(gameGrid.cols,wordDifficulty)
 
@@ -493,69 +573,30 @@ def main(rowAmount:int,columnAmount:int,wordDifficulty:int,
             if event.type == pygame.QUIT:
                 running = False
 
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                gameKeyboard.clicked(x,y)
+
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_BACKSPACE:
-                    # Delete letter from most right, non-empty box
-                    for box in reversed(currentRow):
-                        if box.letter == "":
-                            continue
-                        else:
-                            box.letter = ""
-                            break
-                
+                    KeyFunctions.backspace()
                 elif event.key == pygame.K_RETURN:
-                    guess = ""
-                    for box in currentRow:
-                        guess += box.letter.lower()
-
-                    if len(guess) < len(WORD_TO_GUESS):
-                        tooShortNotification = Notification(1,"Not all boxes filled.","Black","White")
-                        tooShortNotification.displayNotification(gameScreen)
-                    
-                    elif guess == WORD_TO_GUESS:
-                        #Win
-                        calculateColours(currentRow,gameKeyboard,guess,WORD_TO_GUESS)
-                        winNotification = Notification(3,f"Congrats!!! You guessed the word in {currentRowIndex+1} tries.","Black","White")
-                        winNotification.displayNotification(gameScreen)
-                        
-                    elif isRealWord(guess):
-                        calculateColours(currentRow,gameKeyboard,guess,WORD_TO_GUESS)
-
-                        currentRowIndex += 1
-                        if currentRowIndex >= gameGrid.rows:
-                            #Loss
-                            lossNotification = Notification(3,f"Unlucky, the word was {WORD_TO_GUESS.upper()}.","Black","White")
-                            lossNotification.displayNotification(gameScreen)
-
-                            currentRowIndex = 0
-
-                    else:
-                        notRealNotification = Notification(1,"Word not in word list.","Black","White")
-                        notRealNotification.displayNotification(gameScreen)
-
+                    KeyFunctions.enter()
                 elif event.unicode.isalpha():
-                    for box in currentRow:
-                        if box.letter == "":
-                            box.letter = event.unicode.upper()  
-                            break
+                    KeyFunctions.letterPressed(event.unicode)
         
         for notification in Notification.notificationList:
             notification.checkLifespan()
 
-        gameScreen.updateScreen(gameGrid,gameKeyboard)
+        gameScreen.updateScreen()
         pygame.display.update()
         clock.tick(20)
 
     pygame.quit()
 
 if __name__ == "__main__":
-    rowAmount = 6
-    columnAmount = 5
-    WORD_DIFFICULTY = 3
-
-    main(rowAmount,columnAmount,WORD_DIFFICULTY)
-
-
-# add a backspace and enter key and make keyboard clickable so works on mobile
+    main()
 
 # Commit to repository - gameLibrary
+
+# Figure out if you can move Wordle.py into a Games folder so launcher and games are seperate
+# and Contains section of README can just say Games - all my created games which can be launched
