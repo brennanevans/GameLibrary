@@ -74,8 +74,6 @@ class BoxGrid():
         gridArray (list): A grid of box objects.
     """
     def __init__(self,rows,cols):
-        # Max rows = 12
-        # Max cols = 10
         self.rows = rows
         self.cols = cols
         self.gridArray = []
@@ -103,13 +101,19 @@ class BoxGrid():
             keyboardStartY: The The y coordinate of the top of the keyboard.
         """
         PADDING = 5
+        SIDE_PADDING = 25
 
-        #Min of 25 padding each side
-        xSpaceLeft = screenSurface.get_width() - 50 - (PADDING*(self.cols-1))
+        # Calculates horizontal space given 25 padding from each side and
+        # PADDING between each box. This ensures boxes are centered 
+        # horizontally.
+        xSpaceLeft = screenSurface.get_width() - (SIDE_PADDING*2) - (PADDING*(self.cols-1))
         potentialWidth = xSpaceLeft/self.cols
 
-        #Min of 25 padding from each side
-        ySpaceLeft = keyboardStartY - 50 - (PADDING*(self.rows-1))
+        # Calculates vertical space given 25 padding from the top of the
+        # screen and the top of the keyboard and PADDING between each box.
+        # This ensures boxes are centered vertically between top of screen
+        # and top of keyboard.
+        ySpaceLeft = keyboardStartY - (SIDE_PADDING*2) - (PADDING*(self.rows-1))
         potentialHeight = ySpaceLeft/self.rows
 
         BOX_SIZE = math.floor(min(potentialWidth,potentialHeight))
@@ -117,9 +121,9 @@ class BoxGrid():
         xSpaceLeft -= BOX_SIZE*self.cols
         ySpaceLeft -= BOX_SIZE*self.rows
 
-        y = math.floor(ySpaceLeft/2 + 25) # Add half minimum padding = padding from top
+        y = math.floor(ySpaceLeft/2 + SIDE_PADDING)
         for row in self.gridArray:
-            x = xSpaceLeft/2 + 25 # Add half minimum padding = padding from left
+            x = xSpaceLeft/2 + SIDE_PADDING
 
             for box in row:
                 box.rect = pygame.Rect(x,y,BOX_SIZE,BOX_SIZE)
@@ -180,18 +184,28 @@ class KeyboardGrid():
         numOfRows = 3
 
         PADDING = 5
+        SIDE_PADDING = 25
 
-        #Min of 25 padding each side
-        initalXSpaceLeft = screenSurface.get_width() - 50 - (PADDING*(numOfCols-1))
+        # Calculates horizontal space given 25 padding from each side and
+        # PADDING between each box. This ensures boxes are centered 
+        # horizontally.
+        initalXSpaceLeft = screenSurface.get_width() - (SIDE_PADDING*2) - (PADDING*(numOfCols-1))
         potentialWidth = initalXSpaceLeft/numOfCols
 
         BOX_SIZE = min(math.floor(potentialWidth),50)
-
-        y = screenSurface.get_height() - 25 - (numOfRows * BOX_SIZE) - ((numOfRows-1) * PADDING)
+        
+        # Calculates top y value given 25 padding from bottom, size 
+        # of the boxes and padding between each box.
+        initalY = screenSurface.get_height() - SIDE_PADDING - (numOfRows * BOX_SIZE) - ((numOfRows-1) * PADDING)
+        y= initalY
         
         for row in self.gridArray:
             numOfCols = len(row)
-            x = (initalXSpaceLeft - BOX_SIZE*numOfCols)/2 + 25 # Add half minimum padding = padding from left
+            # x position has to be calculated here as number of columns is 
+            # different in each row.
+            x = (initalXSpaceLeft - BOX_SIZE*numOfCols)/2 + SIDE_PADDING
+            if numOfCols == 7:
+                x += PADDING # Needs to be aligned with row above
 
             for box in row:
                 box.rect = pygame.Rect(x,y,BOX_SIZE,BOX_SIZE)
@@ -200,7 +214,7 @@ class KeyboardGrid():
                 x += BOX_SIZE + PADDING
             y += BOX_SIZE + PADDING
 
-        return screenSurface.get_height() - 25 - (numOfRows * BOX_SIZE) - ((numOfRows-1) * PADDING)
+        return initalY
 
 class Screen():
     """
@@ -234,8 +248,6 @@ class Screen():
               displayed.
             keyboard: The grid of box objects making up the keyboard to be 
               displayed.
-            
-              
         """
         keyboardStartY = keyboard._setUp(self.surface)
         grid._setUp(self.surface,keyboardStartY)
@@ -283,8 +295,9 @@ class Notification():
     """
 
     notificationList = []
-    def __init__(self,lifespan:int,text:str,fontSize:int,textColour="#000000",bgColour="#FFFFFF"):
-        font = pygame.font.SysFont('arial',fontSize,True)
+    def __init__(self,lifespan:int,text:str,textColour="#000000",bgColour="#FFFFFF"):
+        font = pygame.font.SysFont('arial',20,True)
+        self.text = text
         self.textSurface = font.render(text,0,textColour,bgColour)
 
         self._width = self.textSurface.get_rect().width
@@ -299,24 +312,30 @@ class Notification():
         Displays the notification on the screen.
 
         This will place the notification on the screen centered horizontally
-        at either the top, middle or bottom of the screen. This is considered
+        at either the top, or bottom of the screen. This is considered
         the creation of the notification so creationTime is set to the time at
         which the method is called. The notification is then added to the class
         variable notificationList and the value of rect is updated.
 
         Attributes:
             screen: The screen on which the notification should be displayed.
-            verticalAlignment: A value of top/center/bottom which describes the
+            verticalAlignment: A value of top/bottom which describes the
               notifications vertical position.
         """
+        for notification in Notification.notificationList:
+            if notification.text == self.text:
+                notification.creationTime = time.time()
+                return
+            else:
+                notification.screenSurface.fill("Black",notification.rect)
+                Notification.notificationList.remove(notification)
+
         if verticalAlignment == "top":
             self.rect = screen.surface.blit(self.textSurface,((screen.width-self._width)/2,0))
-        elif verticalAlignment == "center":
-            self.rect = screen.surface.blit(self.textSurface,((screen.width-self._width)/2,(screen.height-self._height)/2))
         elif verticalAlignment == "bottom":
             self.rect = screen.surface.blit(self.textSurface,((screen.width-self._width)/2,(screen.height-self._height)))
         else:
-            # Default to top 
+            # Default to top for invalid alignment values
             self.rect = screen.surface.blit(self.textSurface,((screen.width-self._width)/2,0))
         
         self.creationTime = time.time()
@@ -366,8 +385,11 @@ def calculateColours(currentRow:list,keyboard:KeyboardGrid,guess:str,answer:str)
         guess: The word guessed.
         answer: The correct word.
     """
+    # Used to determine if letter has already been seen for #C9B458 
+    # determinations.
     lettersLeft = [*answer]
 
+    # First loops checks if letters are in the right place.
     for index in range(len(guess)):
         letter = guess[index]
         if letter == answer[index]:
@@ -375,6 +397,7 @@ def calculateColours(currentRow:list,keyboard:KeyboardGrid,guess:str,answer:str)
             keyboard.letterDictionary.get(letter.upper()).colour = "#6AAA64"
             lettersLeft.remove(letter)
 
+    #Second loop checks if remaining letters are anywhere in the word.
     for index in range(len(guess)):
         letter = guess[index]
         if letter in lettersLeft and currentRow[index].colour != "#6AAA64":
@@ -396,17 +419,30 @@ def generateWord(wordLength:int,difficulty:int):
         wordLength: The required length of the word.
         difficulty: A value which filters words by how common it is using 
           Wikipedia word frequency data. 1 = Easy, 5 = Hard.
+    
+    Returns:
+        str: The generated word, if the API refuses to connect this will be
+          a placeholder word for the value of wordLength.
     """
-    # Get 10 words incase some not accepted by real word tester
+    # Get 10 words incase some not accepted by isRealWord()
     URL = f"https://random-word-api.herokuapp.com/word?number=10&length={wordLength}&diff={difficulty}"
     while True:
-        resp = urllib3.request("GET", URL)
-        wordList = resp.json()
-        for word in wordList:
-            if isRealWord(word):
-                return(word)
+        try:
+            resp = urllib3.request("GET", URL,retries=None,timeout=1)
+            wordList = resp.json()
+            for word in wordList:
+                if isRealWord(word):
+                    return(word)
+        except (urllib3.exceptions.MaxRetryError):
+            print("API refused to connect, selecting appropriate" \
+            " placeholder word.")
+            wordDict = {3:"and",4:"goal",5:"hello",6:"change",7:"framing"
+                        ,8:"abandons",9:"labelling",10:"eastwardly"}
+            return wordDict.get(wordLength)
 
-def main(screenWidth:int,screenHeight:int,rowAmount:int,columnAmount:int,wordDifficulty:int):
+def main(rowAmount:int,columnAmount:int,wordDifficulty:int,
+         screenWidth=pygame.display.get_desktop_sizes()[0][0]-50,
+         screenHeight=pygame.display.get_desktop_sizes()[0][1]-100):
     """
     Creates the game window and handles the main game loop.
 
@@ -414,14 +450,32 @@ def main(screenWidth:int,screenHeight:int,rowAmount:int,columnAmount:int,wordDif
     will handle the calls to all other methods where necessary.
 
     Args:
-        screenWidth: The width of the game window.
-        screenHeight: The height of the game window.
-        rowAmount: The number of rows in the game grid.
+        rowAmount: The number of rows in the game grid (between 3 and 12).
         columnAmount: The number of columns in the game grid (and therefore
-          the length of the word to be guessed)
+          the length of the word to be guessed) (between 3 and 10).
         wordDifficulty: How commonly the word is used in the English Language. 
-          (1=Common,5=Rare)
+          (1=Common,5=Rare).
+        screenWidth: The width of the game window. If any value is passed is
+          below 300 or no value passed, window width is set to width of 
+          monitor - 50.
+        screenHeight: The height of the game window. Any value passed which is
+          below 500 will cause the width and height to be scaled, keeping their
+          original ratio, to make height 500. If no value passed, window width
+          is set to height of monitor - 100.
+
+    Raises:
+        ValueError: If rowAmount or columnAmount or wordDifficulty not in their
+          respective exepected ranges.
     """
+    if rowAmount > 12 or columnAmount > 10:
+        raise ValueError("Max amount of rows or columns exceeded.")
+    elif rowAmount < 4 or columnAmount < 3:
+        raise ValueError("Min amount of rows or columns not reached.")
+    elif wordDifficulty < 1 or wordDifficulty > 5:
+        raise ValueError("wordDifficulty must be a value between 1 and 5.")
+    elif screenWidth < 300:
+        screenWidth = pygame.display.get_desktop_sizes()[0][0]-50
+
     gameScreen = Screen(screenWidth,screenHeight)
     gameGrid = BoxGrid(rowAmount,columnAmount)
     gameKeyboard = KeyboardGrid()
@@ -441,6 +495,7 @@ def main(screenWidth:int,screenHeight:int,rowAmount:int,columnAmount:int,wordDif
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_BACKSPACE:
+                    # Delete letter from most right, non-empty box
                     for box in reversed(currentRow):
                         if box.letter == "":
                             continue
@@ -454,13 +509,13 @@ def main(screenWidth:int,screenHeight:int,rowAmount:int,columnAmount:int,wordDif
                         guess += box.letter.lower()
 
                     if len(guess) < len(WORD_TO_GUESS):
-                        tooShortNotification = Notification(1,"Not all boxes filled.",20,"Black","White")
+                        tooShortNotification = Notification(1,"Not all boxes filled.","Black","White")
                         tooShortNotification.displayNotification(gameScreen)
                     
                     elif guess == WORD_TO_GUESS:
                         #Win
                         calculateColours(currentRow,gameKeyboard,guess,WORD_TO_GUESS)
-                        winNotification = Notification(3,f"Congrats!!! You guessed the word in {currentRowIndex+1} tries.",20,"Black","White")
+                        winNotification = Notification(3,f"Congrats!!! You guessed the word in {currentRowIndex+1} tries.","Black","White")
                         winNotification.displayNotification(gameScreen)
                         
                     elif isRealWord(guess):
@@ -469,13 +524,13 @@ def main(screenWidth:int,screenHeight:int,rowAmount:int,columnAmount:int,wordDif
                         currentRowIndex += 1
                         if currentRowIndex >= gameGrid.rows:
                             #Loss
-                            lossNotification = Notification(3,f"Unlucky, the word was {WORD_TO_GUESS.upper()}.",20,"Black","White")
+                            lossNotification = Notification(3,f"Unlucky, the word was {WORD_TO_GUESS.upper()}.","Black","White")
                             lossNotification.displayNotification(gameScreen)
 
                             currentRowIndex = 0
 
                     else:
-                        notRealNotification = Notification(1,"Word not in word list.",20,"Black","White")
+                        notRealNotification = Notification(1,"Word not in word list.","Black","White")
                         notRealNotification.displayNotification(gameScreen)
 
                 elif event.unicode.isalpha():
@@ -494,16 +549,13 @@ def main(screenWidth:int,screenHeight:int,rowAmount:int,columnAmount:int,wordDif
     pygame.quit()
 
 if __name__ == "__main__":
-    monitorWidth,monitorHeight = pygame.display.get_desktop_sizes()[0]
-    screenWidth = monitorWidth - 50
-    screenHeight = monitorHeight - 100
-    
     rowAmount = 6
     columnAmount = 5
     WORD_DIFFICULTY = 3
 
-    main(screenWidth,screenHeight,rowAmount,columnAmount,WORD_DIFFICULTY)
+    main(rowAmount,columnAmount,WORD_DIFFICULTY)
+
+
+# add a backspace and enter key and make keyboard clickable so works on mobile
 
 # Commit to repository - gameLibrary
-
-# Add some inline/block comments to explain confusing sections
